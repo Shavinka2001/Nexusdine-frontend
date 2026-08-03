@@ -31,6 +31,8 @@ export interface PosOrder {
   serviceCharge: string | number;
   grandTotal: string | number;
   notes: string | null;
+  cancelReason?: string | null;
+  canceledBy?: string | null;
   createdAt: string;
   items: PosOrderItem[];
   table: { id: string; tableNumber: string } | null;
@@ -99,6 +101,13 @@ export async function updateOrderStatus(
 ) {
   const { data } = await api.patch<PosOrder>(`/orders/${orderId}/status`, {
     status,
+  });
+  return data;
+}
+
+export async function cancelOrder(orderId: string, reason: string) {
+  const { data } = await api.patch<PosOrder>(`/orders/${orderId}/cancel`, {
+    reason,
   });
   return data;
 }

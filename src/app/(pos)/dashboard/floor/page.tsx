@@ -12,7 +12,9 @@ import {
   RefreshCw,
   Users,
   UtensilsCrossed,
+  XCircle,
 } from "lucide-react";
+import { CancelOrderDialog } from "@/components/features/tables/CancelOrderDialog";
 import { AppShell } from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
@@ -20,6 +22,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { fetchBranches } from "@/lib/catalog-api";
 import {
+  cancelOrder,
   fetchActiveOrderByTable,
   type PosOrder,
 } from "@/lib/orders-api";
@@ -29,6 +32,7 @@ import {
   type FloorTable,
 } from "@/lib/tables-api";
 import { cn } from "@/lib/cn";
+import { normalizeRole } from "@/lib/roles";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCartStore } from "@/store/useCartStore";
 import { toast } from "@/store/useToastStore";
@@ -71,6 +75,8 @@ const STATUS_STYLE: Record<
 export default function LiveFloorPage() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const role = normalizeRole(user?.role);
+  const canCancelOrder = role === "OWNER" || role === "MANAGER";
   const clearCart = useCartStore((state) => state.clearCart);
   const setServiceType = useCartStore((state) => state.setServiceType);
   const setTable = useCartStore((state) => state.setTable);
@@ -93,6 +99,7 @@ export default function LiveFloorPage() {
   const [summaryOrder, setSummaryOrder] = useState<PosOrder | null>(null);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [requestingBill, setRequestingBill] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -240,6 +247,26 @@ export default function LiveFloorPage() {
       toast(getApiErrorMessage(error, "Could not request bill"), "error");
     } finally {
       setRequestingBill(false);
+    }
+  };
+
+  const showCancelButton =
+    canCancelOrder &&
+    Boolean(summaryOrder) &&
+    (summaryOrder?.status === "PENDING" || summaryOrder?.status === "READY");
+
+  const handleConfirmCancel = async (reason: string) => {
+    if (!summaryOrder) return;
+    try {
+      await cancelOrder(summaryOrder.id, reason);
+      toast(`Order ${summaryOrder.orderNumber} cancelled`, "success");
+      setCancelOpen(false);
+      setSummaryTable(null);
+      setSummaryOrder(null);
+      await loadFloor(true);
+    } catch (error) {
+      toast(getApiErrorMessage(error, "Could not cancel order"), "error");
+      throw error;
     }
   };
 
@@ -575,9 +602,27 @@ export default function LiveFloorPage() {
                 Request Bill
               </button>
             </div>
+
+            {showCancelButton ? (
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-bold text-red-600 active:bg-red-100"
+              >
+                <XCircle className="h-4 w-4" />
+                Cancel Order
+              </button>
+            ) : null}
           </div>
         )}
       </Modal>
+
+      <CancelOrderDialog
+        open={cancelOpen && Boolean(summaryOrder)}
+        orderNumber={summaryOrder?.orderNumber ?? ""}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={handleConfirmCancel}
+      />
     </AppShell>
   );
 }
