@@ -13,12 +13,15 @@ export type AppRole =
 export function resolveAppRole(
   role: UserRole | string | undefined | null,
 ): AppRole | null {
-  if (role === "KITCHEN" || role === "CHEF") return "CHEF";
-  if (role === "SUPER_ADMIN") return "SUPER_ADMIN";
-  if (role === "OWNER") return "OWNER";
-  if (role === "MANAGER") return "MANAGER";
-  if (role === "CASHIER") return "CASHIER";
-  if (role === "WAITER") return "WAITER";
+  if (role == null || role === "") return null;
+  // Backend enums are UPPERCASE; tolerate TitleCase / mixed case from storage/API.
+  const normalized = String(role).trim().toUpperCase();
+  if (normalized === "KITCHEN" || normalized === "CHEF") return "CHEF";
+  if (normalized === "SUPER_ADMIN") return "SUPER_ADMIN";
+  if (normalized === "OWNER") return "OWNER";
+  if (normalized === "MANAGER") return "MANAGER";
+  if (normalized === "CASHIER") return "CASHIER";
+  if (normalized === "WAITER") return "WAITER";
   return null;
 }
 

@@ -72,18 +72,32 @@ const STATUS_STYLE: Record<
   },
 };
 
+/** Open-order statuses the audited cancel API accepts (not COMPLETED/CANCELLED). */
+const CANCELLABLE_ORDER_STATUSES = new Set([
+  "PENDING",
+  "CONFIRMED",
+  "PREPARING",
+  "READY",
+  "SERVED",
+]);
+
 export default function LiveFloorPage() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const role = normalizeRole(user?.role);
-  const canCancelOrder = role === "OWNER" || role === "MANAGER";
+  // Case-safe authorization — do not rely on exact casing from the store/API.
+  const userRole = user?.role?.toUpperCase();
+  const isAuthorizedToCancel =
+    userRole === "OWNER" ||
+    userRole === "MANAGER" ||
+    role === "OWNER" ||
+    role === "MANAGER";
   const clearCart = useCartStore((state) => state.clearCart);
   const setServiceType = useCartStore((state) => state.setServiceType);
   const setTable = useCartStore((state) => state.setTable);
   const loadOpenOrder = useCartStore((state) => state.loadOpenOrder);
 
-  const canSelectBranch =
-    user?.role === "OWNER" || user?.role === "MANAGER";
+  const canSelectBranch = role === "OWNER" || role === "MANAGER";
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState(user?.branchId ?? "");
@@ -250,10 +264,11 @@ export default function LiveFloorPage() {
     }
   };
 
+  const orderStatus = summaryOrder?.status?.toUpperCase() ?? "";
   const showCancelButton =
-    canCancelOrder &&
+    isAuthorizedToCancel &&
     Boolean(summaryOrder) &&
-    (summaryOrder?.status === "PENDING" || summaryOrder?.status === "READY");
+    CANCELLABLE_ORDER_STATUSES.has(orderStatus);
 
   const handleConfirmCancel = async (reason: string) => {
     if (!summaryOrder) return;
@@ -523,25 +538,28 @@ export default function LiveFloorPage() {
         }}
         className="max-h-[90dvh] overflow-y-auto"
       >
-        {loadingOrder ? (
-          <div className="flex min-h-40 items-center justify-center">
-            <Loader2 className="h-7 w-7 animate-spin text-[#FF6B35]" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {summaryOrder ? (
-              <>
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
-                  <span className="text-xs font-semibold text-slate-500">
-                    {summaryOrder.orderNumber}
-                  </span>
-                  <span className="rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold uppercase text-orange-700">
-                    {summaryOrder.status}
-                  </span>
-                </div>
+        <div className="space-y-4">
+          {loadingOrder && !summaryOrder ? (
+            <div className="flex min-h-40 items-center justify-center">
+              <Loader2 className="h-7 w-7 animate-spin text-[#FF6B35]" />
+            </div>
+          ) : summaryOrder ? (
+            <>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                <span className="text-xs font-semibold text-slate-500">
+                  {summaryOrder.orderNumber}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold uppercase text-orange-700">
+                  {loadingOrder ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : null}
+                  {summaryOrder.status}
+                </span>
+              </div>
 
-                <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-                  {summaryOrder.items.map((item) => (
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                {summaryOrder.items.length > 0 ? (
+                  summaryOrder.items.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between gap-3 px-3 py-3"
@@ -558,63 +576,67 @@ export default function LiveFloorPage() {
                         {formatLkr(item.totalPrice)}
                       </span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-[#2F3E46] px-4 py-3 text-white">
-                  <span className="text-sm font-semibold text-white/70">
-                    Total due
-                  </span>
-                  <span className="font-display text-2xl">
-                    {formatLkr(summaryOrder.grandTotal)}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
-                <p className="font-bold text-[#2F3E46]">No items sent yet</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Continue to POS to add this table’s first items.
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={addItems}
-                className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[#FF6B35] px-3 text-sm font-bold text-white active:scale-[0.99]"
-              >
-                <Plus className="h-5 w-5" />
-                Add Items
-              </button>
-              <button
-                type="button"
-                disabled={!summaryOrder || requestingBill}
-                onClick={() => void requestBill()}
-                className="flex h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 px-3 text-sm font-bold text-white active:scale-[0.99] disabled:opacity-40"
-              >
-                {requestingBill ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  ))
                 ) : (
-                  <Banknote className="h-5 w-5" />
+                  <div className="px-3 py-6 text-center text-sm text-slate-500">
+                    {loadingOrder ? "Loading items…" : "No items yet"}
+                  </div>
                 )}
-                Request Bill
-              </button>
-            </div>
+              </div>
 
-            {showCancelButton ? (
-              <button
-                type="button"
-                onClick={() => setCancelOpen(true)}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-bold text-red-600 active:bg-red-100"
-              >
-                <XCircle className="h-4 w-4" />
-                Cancel Order
-              </button>
-            ) : null}
+              <div className="flex items-center justify-between rounded-xl bg-[#2F3E46] px-4 py-3 text-white">
+                <span className="text-sm font-semibold text-white/70">
+                  Total due
+                </span>
+                <span className="font-display text-2xl">
+                  {formatLkr(summaryOrder.grandTotal)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
+              <p className="font-bold text-[#2F3E46]">No items sent yet</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Continue to POS to add this table’s first items.
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={addItems}
+              className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[#FF6B35] px-3 text-sm font-bold text-white active:scale-[0.99]"
+            >
+              <Plus className="h-5 w-5" />
+              Add Items
+            </button>
+            <button
+              type="button"
+              disabled={!summaryOrder || requestingBill}
+              onClick={() => void requestBill()}
+              className="flex h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 px-3 text-sm font-bold text-white active:scale-[0.99] disabled:opacity-40"
+            >
+              {requestingBill ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Banknote className="h-5 w-5" />
+              )}
+              Request Bill
+            </button>
           </div>
-        )}
+
+          {showCancelButton ? (
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              className="flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-bold text-red-600 active:bg-red-100"
+            >
+              <XCircle className="h-4 w-4" />
+              Cancel Order
+            </button>
+          ) : null}
+        </div>
       </Modal>
 
       <CancelOrderDialog
