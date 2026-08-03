@@ -1,26 +1,123 @@
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8f9fa;
+  --foreground: #2f3e46;
+  --primary: #ff6b35;
+  --secondary: #2f3e46;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-50: #fff3ee;
+  --color-primary-100: #ffe4d6;
+  --color-primary-200: #ffc4a8;
+  --color-primary-300: #ff9d70;
+  --color-primary-400: #ff7a47;
+  --color-primary-500: #ff6b35;
+  --color-primary-600: #f05520;
+  --color-primary-700: #c94216;
+  --color-primary-800: #a13616;
+  --color-primary-900: #843016;
+  --color-secondary: var(--secondary);
+  --color-secondary-50: #f4f6f7;
+  --color-secondary-100: #e3e7e9;
+  --color-secondary-200: #c5cdd2;
+  --color-secondary-300: #9aa8b0;
+  --color-secondary-400: #6b7d88;
+  --color-secondary-500: #516370;
+  --color-secondary-600: #3f505c;
+  --color-secondary-700: #2f3e46;
+  --color-secondary-800: #263238;
+  --color-secondary-900: #1c252a;
+  --color-surface: #f8f9fa;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #eef1f3;
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --breakpoint-pos: 48rem;
+  --breakpoint-station: 80rem;
+  --shadow-nav: 0 -4px 24px rgba(47, 62, 70, 0.08);
+  --shadow-panel: 0 12px 40px rgba(47, 62, 70, 0.12);
+  --animate-fade-up: fade-up 0.35s ease-out both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 28%, white);
+  color: var(--foreground);
+}
+
+/* Hide scrollbars while keeping scroll / overflow behavior */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE / old Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+/* Table QR tent-card print layout (A6 / ~4×6 table stand) */
+@media print {
+  @page {
+    size: 105mm 148mm;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-qr-root,
+  .print-qr-root * {
+    visibility: visible !important;
+  }
+
+  .print-qr-root {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: white !important;
+    z-index: 99999 !important;
+  }
+}
+
