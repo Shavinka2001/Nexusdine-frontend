@@ -47,17 +47,26 @@ export interface LoyaltySettings {
   isActive: boolean;
 }
 
+export interface StaffDiscountSettings {
+  /** Fraction e.g. 0.5 = 50% */
+  staffDiscountPercentage: number;
+  maxPerDay: number;
+  isActive: boolean;
+}
+
 export interface CartTotals {
   subtotal: number;
   vatAmount: number;
   ssclAmount: number;
   serviceChargeAmount: number;
   taxTotal: number;
-  /** Grand total before any loyalty discount */
+  /** Grand total before any discounts */
   baseGrandTotal: number;
   /** Points actually redeemable on this bill (capped by balance and bill value) */
   loyaltyPointsUsed: number;
   loyaltyDiscount: number;
+  staffDiscountPercent: number;
+  staffDiscountAmount: number;
   grandTotal: number;
 }
 
@@ -92,6 +101,8 @@ function computeTotals(
   customer: Customer | null,
   redeemLoyaltyPoints: boolean,
   loyalty: LoyaltySettings | null,
+  applyStaffDiscount: boolean,
+  staffDiscountConfig: StaffDiscountSettings | null,
 ): CartTotals {
   const subtotal = roundMoney(
     items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -104,6 +115,24 @@ function computeTotals(
   const taxTotal = roundMoney(vatAmount + ssclAmount);
   const baseGrandTotal = roundMoney(subtotal + taxTotal + serviceChargeAmount);
 
+  let staffDiscountPercent = 0;
+  let staffDiscountAmount = 0;
+  if (
+    applyStaffDiscount &&
+    staffDiscountConfig?.isActive &&
+    staffDiscountConfig.staffDiscountPercentage > 0 &&
+    baseGrandTotal > 0
+  ) {
+    staffDiscountPercent = staffDiscountConfig.staffDiscountPercentage;
+    staffDiscountAmount = roundMoney(
+      baseGrandTotal * staffDiscountConfig.staffDiscountPercentage,
+    );
+  }
+
+  const afterStaff = roundMoney(
+    Math.max(0, baseGrandTotal - staffDiscountAmount),
+  );
+
   let loyaltyPointsUsed = 0;
   let loyaltyDiscount = 0;
 
@@ -113,15 +142,15 @@ function computeTotals(
     customer.loyaltyPoints > 0 &&
     loyalty?.isActive &&
     loyalty.valuePerPoint > 0 &&
-    baseGrandTotal > 0
+    afterStaff > 0
   ) {
-    // Never let the discount exceed the bill value
-    const maxUsableByBill = Math.floor(baseGrandTotal / loyalty.valuePerPoint);
+    // Never let the discount exceed the remaining bill value
+    const maxUsableByBill = Math.floor(afterStaff / loyalty.valuePerPoint);
     loyaltyPointsUsed = Math.min(customer.loyaltyPoints, maxUsableByBill);
     loyaltyDiscount = roundMoney(loyaltyPointsUsed * loyalty.valuePerPoint);
   }
 
-  const grandTotal = roundMoney(Math.max(0, baseGrandTotal - loyaltyDiscount));
+  const grandTotal = roundMoney(Math.max(0, afterStaff - loyaltyDiscount));
 
   return {
     subtotal,
@@ -132,6 +161,8 @@ function computeTotals(
     baseGrandTotal,
     loyaltyPointsUsed,
     loyaltyDiscount,
+    staffDiscountPercent,
+    staffDiscountAmount,
     grandTotal,
   };
 }
@@ -144,8 +175,11 @@ interface CartState {
   activeOrderId: string | null;
   selectedCustomer: Customer | null;
   redeemLoyaltyPoints: boolean;
+  applyStaffDiscount: boolean;
+  staffRecipientId: string | null;
   taxConfig: TaxConfig;
   loyaltyConfig: LoyaltySettings | null;
+  staffDiscountConfig: StaffDiscountSettings | null;
   addToCart: (
     product: CartProductInput,
     selectedVariant?: CartVariant | null,
@@ -161,8 +195,11 @@ interface CartState {
   loadOpenOrder: (order: PosOrder) => void;
   setCustomer: (customer: Customer | null) => void;
   toggleLoyaltyRedemption: () => void;
+  setApplyStaffDiscount: (enabled: boolean) => void;
+  setStaffRecipientId: (id: string | null) => void;
   setTaxConfig: (vat: number, sscl: number, serviceCharge: number) => void;
   setLoyaltyConfig: (config: LoyaltySettings | null) => void;
+  setStaffDiscountConfig: (config: StaffDiscountSettings | null) => void;
   getTotals: () => CartTotals;
 }
 
@@ -173,8 +210,11 @@ export const useCartStore = create<CartState>((set, get) => ({
   activeOrderId: null,
   selectedCustomer: null,
   redeemLoyaltyPoints: false,
+  applyStaffDiscount: false,
+  staffRecipientId: null,
   taxConfig: { vat: 18, sscl: 0, serviceCharge: 0 },
   loyaltyConfig: null,
+  staffDiscountConfig: null,
 
   addToCart: (product, selectedVariant = null, selectedAddOns = [], quantity = 1) => {
     if (quantity < 1) return;
@@ -250,6 +290,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       activeOrderId: null,
       selectedCustomer: null,
       redeemLoyaltyPoints: false,
+      applyStaffDiscount: false,
+      staffRecipientId: null,
     }),
 
   setServiceType: (serviceType) =>
@@ -260,7 +302,13 @@ export const useCartStore = create<CartState>((set, get) => ({
         ? { selectedTableId: null, activeOrderId: null }
         : {}),
       ...(serviceType === "TAKEAWAY" && state.activeOrderId
-        ? { cartItems: [], selectedCustomer: null, redeemLoyaltyPoints: false }
+        ? {
+            cartItems: [],
+            selectedCustomer: null,
+            redeemLoyaltyPoints: false,
+            applyStaffDiscount: false,
+            staffRecipientId: null,
+          }
         : {}),
     })),
 
@@ -275,6 +323,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       selectedTableId: order.tableId,
       serviceType: order.tableId ? "DINE_IN" : "TAKEAWAY",
       redeemLoyaltyPoints: false,
+      applyStaffDiscount: Boolean(order.isStaffDiscount),
+      staffRecipientId: order.staffRecipientId ?? null,
       selectedCustomer: order.customer
         ? {
             id: order.customer.id,
@@ -309,6 +359,18 @@ export const useCartStore = create<CartState>((set, get) => ({
   toggleLoyaltyRedemption: () =>
     set((state) => ({ redeemLoyaltyPoints: !state.redeemLoyaltyPoints })),
 
+  setApplyStaffDiscount: (enabled) =>
+    set({
+      applyStaffDiscount: enabled,
+      ...(enabled ? {} : { staffRecipientId: null }),
+    }),
+
+  setStaffRecipientId: (id) =>
+    set({
+      staffRecipientId: id,
+      applyStaffDiscount: Boolean(id),
+    }),
+
   setTaxConfig: (vat, sscl, serviceCharge) =>
     set({
       taxConfig: {
@@ -320,6 +382,8 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   setLoyaltyConfig: (config) => set({ loyaltyConfig: config }),
 
+  setStaffDiscountConfig: (config) => set({ staffDiscountConfig: config }),
+
   getTotals: () => {
     const s = get();
     return computeTotals(
@@ -328,6 +392,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       s.selectedCustomer,
       s.redeemLoyaltyPoints,
       s.loyaltyConfig,
+      s.applyStaffDiscount && Boolean(s.staffRecipientId),
+      s.staffDiscountConfig,
     );
   },
 }));
@@ -340,5 +406,7 @@ export function selectCartTotals(state: CartState): CartTotals {
     state.selectedCustomer,
     state.redeemLoyaltyPoints,
     state.loyaltyConfig,
+    state.applyStaffDiscount && Boolean(state.staffRecipientId),
+    state.staffDiscountConfig,
   );
 }

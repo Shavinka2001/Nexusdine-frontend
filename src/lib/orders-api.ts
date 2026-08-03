@@ -30,6 +30,9 @@ export interface PosOrder {
   taxTotal: string | number;
   serviceCharge: string | number;
   grandTotal: string | number;
+  discountAmount?: string | number;
+  isStaffDiscount?: boolean;
+  staffRecipientId?: string | null;
   notes: string | null;
   cancelReason?: string | null;
   canceledBy?: string | null;
@@ -49,6 +52,8 @@ export interface CreateOrderPayload {
   tableId?: string;
   customerId?: string;
   loyaltyPointsRedeemed?: number;
+  isStaffDiscount?: boolean;
+  staffRecipientId?: string;
   /** Omitted for dine-in KOT holds — payment method is chosen at settle */
   paymentMethod?: PaymentMethod;
   items: { productId: string; quantity: number }[];
@@ -86,7 +91,12 @@ export async function updateOrderItems(
 
 export async function completeOrder(
   orderId: string,
-  payload?: { paymentMethod?: PaymentMethod; loyaltyPointsRedeemed?: number },
+  payload?: {
+    paymentMethod?: PaymentMethod;
+    loyaltyPointsRedeemed?: number;
+    isStaffDiscount?: boolean;
+    staffRecipientId?: string;
+  },
 ) {
   const { data } = await api.patch<PosOrder>(
     `/orders/${orderId}/complete`,

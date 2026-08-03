@@ -92,17 +92,21 @@ export function CheckoutModal({ open, onClose, onSettled }: CheckoutModalProps) 
   const activeOrderId = useCartStore((s) => s.activeOrderId);
   const selectedCustomer = useCartStore((s) => s.selectedCustomer);
   const redeemLoyaltyPoints = useCartStore((s) => s.redeemLoyaltyPoints);
+  const applyStaffDiscount = useCartStore((s) => s.applyStaffDiscount);
+  const staffRecipientId = useCartStore((s) => s.staffRecipientId);
   const clearCart = useCartStore((s) => s.clearCart);
-  const { grandTotal, loyaltyDiscount, loyaltyPointsUsed } = useCartStore(
-    useShallow((s) => {
-      const t = selectCartTotals(s);
-      return {
-        grandTotal: t.grandTotal,
-        loyaltyDiscount: t.loyaltyDiscount,
-        loyaltyPointsUsed: t.loyaltyPointsUsed,
-      };
-    }),
-  );
+  const { grandTotal, loyaltyDiscount, loyaltyPointsUsed, staffDiscountAmount } =
+    useCartStore(
+      useShallow((s) => {
+        const t = selectCartTotals(s);
+        return {
+          grandTotal: t.grandTotal,
+          loyaltyDiscount: t.loyaltyDiscount,
+          loyaltyPointsUsed: t.loyaltyPointsUsed,
+          staffDiscountAmount: t.staffDiscountAmount,
+        };
+      }),
+    );
 
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [paidDigits, setPaidDigits] = useState("");
@@ -195,6 +199,18 @@ export function CheckoutModal({ open, onClose, onSettled }: CheckoutModalProps) 
         ? loyaltyPointsUsed
         : undefined;
 
+    const staffPayload =
+      applyStaffDiscount && staffRecipientId
+        ? { isStaffDiscount: true as const, staffRecipientId }
+        : {};
+
+    if (applyStaffDiscount && !staffRecipientId) {
+      toast("Select an employee for the staff discount", "error");
+      submittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (activeOrderId) {
         // Settling a recalled dine-in order: sync items, then complete
@@ -202,6 +218,7 @@ export function CheckoutModal({ open, onClose, onSettled }: CheckoutModalProps) 
         await completeOrder(activeOrderId, {
           paymentMethod: method,
           loyaltyPointsRedeemed: pointsRedeemed,
+          ...staffPayload,
         });
       } else {
         // Takeaway / direct sale: create and settle in one go
@@ -212,6 +229,7 @@ export function CheckoutModal({ open, onClose, onSettled }: CheckoutModalProps) 
           loyaltyPointsRedeemed: pointsRedeemed,
           paymentMethod: method,
           items,
+          ...staffPayload,
         });
         await completeOrder(order.id);
       }
@@ -220,7 +238,9 @@ export function CheckoutModal({ open, onClose, onSettled }: CheckoutModalProps) 
       toast(
         selectedCustomer
           ? `Order completed — ${formatLkr(grandTotal)} · ${selectedCustomer.name}`
-          : `Order completed — ${formatLkr(grandTotal)}`,
+          : staffDiscountAmount > 0
+            ? `Staff meal settled — ${formatLkr(grandTotal)}`
+            : `Order completed — ${formatLkr(grandTotal)}`,
         "success",
       );
       clearCart();

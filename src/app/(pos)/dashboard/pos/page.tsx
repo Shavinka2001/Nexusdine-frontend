@@ -25,6 +25,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { CheckoutModal } from "@/components/features/pos/CheckoutModal";
 import { CustomerSelect } from "@/components/features/pos/CustomerSelect";
+import { StaffDiscountSelect } from "@/components/features/pos/StaffDiscountSelect";
 import { ProductModifiersModal } from "@/components/features/pos/ProductModifiersModal";
 import { TableSelectorModal } from "@/components/features/pos/TableSelectorModal";
 import { AppShell } from "@/components/layout/AppShell";
@@ -79,6 +80,8 @@ export default function PosBillingPage() {
     serviceChargeAmount,
     loyaltyDiscount,
     loyaltyPointsUsed,
+    staffDiscountAmount,
+    staffDiscountPercent,
     grandTotal,
   } = useCartStore(
     useShallow((s) => {
@@ -90,6 +93,8 @@ export default function PosBillingPage() {
         serviceChargeAmount: t.serviceChargeAmount,
         loyaltyDiscount: t.loyaltyDiscount,
         loyaltyPointsUsed: t.loyaltyPointsUsed,
+        staffDiscountAmount: t.staffDiscountAmount,
+        staffDiscountPercent: t.staffDiscountPercent,
         grandTotal: t.grandTotal,
       };
     }),
@@ -552,6 +557,7 @@ export default function PosBillingPage() {
 
           <div className="shrink-0">
             <CustomerSelect />
+            <StaffDiscountSelect />
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -638,6 +644,16 @@ export default function PosBillingPage() {
               label={`Service (${taxConfig.serviceCharge}%)`}
               value={formatLkr(serviceChargeAmount)}
             />
+            {staffDiscountAmount > 0 ? (
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-[#FF6B35]">
+                  Staff Discount ({Math.round(staffDiscountPercent * 100)}%)
+                </span>
+                <span className="font-semibold text-[#FF6B35]">
+                  −{formatLkr(staffDiscountAmount)}
+                </span>
+              </div>
+            ) : null}
             {loyaltyDiscount > 0 ? (
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-emerald-600">
