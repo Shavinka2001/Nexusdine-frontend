@@ -44,6 +44,9 @@ export function getAllowedRolesForPath(pathname: string): AppRole[] | null {
   if (pathname.startsWith("/dashboard/financials")) {
     return ["OWNER", "MANAGER"];
   }
+  if (pathname.startsWith("/dashboard/audit")) {
+    return ["OWNER"];
+  }
   if (
     pathname.startsWith("/dashboard/suppliers") ||
     pathname.startsWith("/dashboard/inventory")

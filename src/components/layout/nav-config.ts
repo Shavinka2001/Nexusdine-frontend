@@ -8,6 +8,7 @@ import {
   HeartHandshake,
   LayoutDashboard,
   Settings,
+  ShieldAlert,
   Store,
   Truck,
   Users,
@@ -80,6 +81,13 @@ export const NAV_CONFIG: NavConfigItem[] = [
     label: "Financials",
     icon: CircleDollarSign,
     allowedRoles: ["OWNER", "MANAGER"],
+  },
+  {
+    id: "audit",
+    path: "/dashboard/audit",
+    label: "Audit Logs",
+    icon: ShieldAlert,
+    allowedRoles: ["OWNER"],
   },
   {
     id: "suppliers",
