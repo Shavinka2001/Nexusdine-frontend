@@ -24,8 +24,10 @@ import {
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { CheckoutModal } from "@/components/features/pos/CheckoutModal";
-import { CustomerSelect } from "@/components/features/pos/CustomerSelect";
-import { StaffDiscountSelect } from "@/components/features/pos/StaffDiscountSelect";
+import {
+  CartActiveBadges,
+  CartQuickActionsBar,
+} from "@/components/features/pos/CartQuickActions";
 import { ProductModifiersModal } from "@/components/features/pos/ProductModifiersModal";
 import { TableSelectorModal } from "@/components/features/pos/TableSelectorModal";
 import { AppShell } from "@/components/layout/AppShell";
@@ -505,6 +507,8 @@ export default function PosBillingPage() {
               </button>
             </div>
 
+            <CartQuickActionsBar />
+
             {serviceType === "DINE_IN" && selectedTableId ? (
               <button
                 type="button"
@@ -555,12 +559,11 @@ export default function PosBillingPage() {
             ) : null}
           </div>
 
-          <div className="shrink-0">
-            <CustomerSelect />
-            <StaffDiscountSelect />
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0 px-4 pt-3">
+              <CartActiveBadges />
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4">
             {cartItems.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-400">
                 Tap products to start a bill
@@ -628,6 +631,7 @@ export default function PosBillingPage() {
                 </div>
               ))
             )}
+            </div>
           </div>
 
           <div className="shrink-0 space-y-2 border-t border-slate-200 p-4">

@@ -177,6 +177,7 @@ interface CartState {
   redeemLoyaltyPoints: boolean;
   applyStaffDiscount: boolean;
   staffRecipientId: string | null;
+  staffRecipientName: string | null;
   taxConfig: TaxConfig;
   loyaltyConfig: LoyaltySettings | null;
   staffDiscountConfig: StaffDiscountSettings | null;
@@ -196,6 +197,7 @@ interface CartState {
   setCustomer: (customer: Customer | null) => void;
   toggleLoyaltyRedemption: () => void;
   setApplyStaffDiscount: (enabled: boolean) => void;
+  setStaffRecipient: (recipient: { id: string; name: string } | null) => void;
   setStaffRecipientId: (id: string | null) => void;
   setTaxConfig: (vat: number, sscl: number, serviceCharge: number) => void;
   setLoyaltyConfig: (config: LoyaltySettings | null) => void;
@@ -212,6 +214,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   redeemLoyaltyPoints: false,
   applyStaffDiscount: false,
   staffRecipientId: null,
+  staffRecipientName: null,
   taxConfig: { vat: 18, sscl: 0, serviceCharge: 0 },
   loyaltyConfig: null,
   staffDiscountConfig: null,
@@ -292,6 +295,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       redeemLoyaltyPoints: false,
       applyStaffDiscount: false,
       staffRecipientId: null,
+      staffRecipientName: null,
     }),
 
   setServiceType: (serviceType) =>
@@ -308,6 +312,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             redeemLoyaltyPoints: false,
             applyStaffDiscount: false,
             staffRecipientId: null,
+            staffRecipientName: null,
           }
         : {}),
     })),
@@ -325,6 +330,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       redeemLoyaltyPoints: false,
       applyStaffDiscount: Boolean(order.isStaffDiscount),
       staffRecipientId: order.staffRecipientId ?? null,
+      staffRecipientName: null,
       selectedCustomer: order.customer
         ? {
             id: order.customer.id,
@@ -362,13 +368,23 @@ export const useCartStore = create<CartState>((set, get) => ({
   setApplyStaffDiscount: (enabled) =>
     set({
       applyStaffDiscount: enabled,
-      ...(enabled ? {} : { staffRecipientId: null }),
+      ...(enabled
+        ? {}
+        : { staffRecipientId: null, staffRecipientName: null }),
+    }),
+
+  setStaffRecipient: (recipient) =>
+    set({
+      staffRecipientId: recipient?.id ?? null,
+      staffRecipientName: recipient?.name ?? null,
+      applyStaffDiscount: Boolean(recipient?.id),
     }),
 
   setStaffRecipientId: (id) =>
     set({
       staffRecipientId: id,
       applyStaffDiscount: Boolean(id),
+      ...(id ? {} : { staffRecipientName: null }),
     }),
 
   setTaxConfig: (vat, sscl, serviceCharge) =>
